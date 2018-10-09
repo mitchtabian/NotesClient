@@ -8,6 +8,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,10 +25,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView mNotesDisplay;
 
     //vars
-    private Messenger mMessenger = null;
-    private IpcHandler mIpcHandler = new IpcHandler(this);
-    private Messenger mIncomingMessenger = null;
-    private boolean mIsBound = false;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,108 +36,35 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public void bindToAppTwoService(View view) {
-        bindService();
+
+    private void retrieveDataWithIntent() {
+        Intent intent = new Intent();
+        intent.setAction("android.intent.action.PICK");
+        intent.setType("vnd.codingwithmitch.text/vnd.codingwithmitch.intent-text");
+        startActivityForResult(intent, Constants.MSG_GET_NOTES);
     }
 
-
-    static class IpcHandler extends Handler {
-
-        private final WeakReference<MainActivity> mMainActivity;
-
-        public IpcHandler(MainActivity activity) {
-            mMainActivity = new WeakReference<MainActivity>(activity);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            Log.d(TAG, "handleMessage: got incoming message from server.");
-            Log.d(TAG, "handleMessage: what: " + msg.what);
-            switch (msg.what) {
-
-                case Constants.MSG_RECEIVED_NOTES:{
-                    Log.d(TAG, "handleMessage: received incoming notes.");
-
-                    String notes = msg.getData().getString("ipc_notes");
-                    Log.d(TAG, "handleMessage: notes: " + notes);
-
-                    mMainActivity.get().mNotesDisplay.setText(notes);
-
-                    break;
-                }
-
-                default: {
-                    Log.d(TAG, "handleMessage: default case.");
-                    super.handleMessage(msg);
-                    break;
-                }
-            }
-        }
-    }
-
-    public void bindService(){
-        Intent serviceBindIntent =  new Intent();
-        serviceBindIntent.setComponent(new ComponentName("com.codingwithmitch.notes", "com.codingwithmitch.notes.NotesService"));
-        bindService(serviceBindIntent, serviceConnection, 0);
-    }
-
-
-    private ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder iBinder) {
-            Log.d(TAG, "ServiceConnection: connected to service.");
-            mMessenger = new Messenger(iBinder);
-            mIsBound = true;
-            mIncomingMessenger = new Messenger(mIpcHandler);
-        }
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            Log.d(TAG, "ServiceConnection: disconnected from service.");
-            mMessenger = null;
-            mIsBound = false;
-        }
-
-        @Override
-        public void onNullBinding(ComponentName name) {
-            Log.d(TAG, "ServiceConnection: onNullBinding: called.");
-        }
-
-        @Override
-        public void onBindingDied(ComponentName name) {
-            Log.d(TAG, "ServiceConnection: onBindingDied: called.");
-        }
-    };
 
     @Override
-    protected void onStop() {
-        Log.d(TAG, "onStop: called.");
-        super.onStop();
-        if (mMessenger != null) {
-            unbindService(serviceConnection);
-            mMessenger = null;
-        }
-    }
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 
-    public void getNotesFromAppTwo(View view) {
-        retrieveDataFromService();
-    }
+        Log.d(TAG, "onActivityResult: called.");
 
-    private void retrieveDataFromService(){
-        Log.d(TAG, "retrieveDataFromService: asking service from application two for data.");
-        mNotesDisplay.setText("");
+        if (resultCode == RESULT_OK) {
+            if(requestCode == Constants.MSG_GET_NOTES){
 
-        if (mIsBound) {
-            if (mMessenger != null) {
-                try {
-                    Message msg = Message.obtain(null, Constants.MSG_GET_NOTES);
-                    msg.replyTo = mIncomingMessenger;
-                    mMessenger.send(msg);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "retrieveDataFromService: RemoteException: " + e.getMessage() );
-                    // Service crashed
-                }
+                Log.d(TAG, "onActivityResult: msg get notes.");
+
+                String msg = data.getStringExtra("message_text_from_notes_app");
+                Log.d(TAG, "onActivityResult: msg: " + msg);
+                mNotesDisplay.setText(msg);
             }
         }
     }
 
+
+    public void getNotesFromAppTwo(View view) {
+        retrieveDataWithIntent();
+    }
 }
